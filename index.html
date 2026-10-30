@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#FFFFFF">
+<meta name="apple-mobile-web-app-title" content="缺口日记">
+<meta name="application-name" content="缺口日记">
+<meta name="description" content="拍照记饮食、记运动，算出每天的热量缺口。">
+<title>缺口日记 · kcal</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ============ 今天 ============ -->
+  <section class="page is-active" id="page-home">
+
+    <header class="home-head">
+      <p class="hh-date" id="hhDate">—</p>
+      <h1 class="hh-title" id="hhTitle">今天</h1>
+      <span class="hh-squiggle" aria-hidden="true"></span>
+    </header>
+
+    <!-- 热量缺口主卡 -->
+    <div class="gap-card" id="gapCard">
+      <canvas id="gapRing" class="gap-ring" width="480" height="480" aria-hidden="true"></canvas>
+      <div class="gap-core">
+        <p class="gap-label">今日热量缺口</p>
+        <p class="gap-num" id="gapNum">—</p>
+        <p class="gap-unit">kcal</p>
+      </div>
+      <p class="gap-note" id="gapNote">先去「我的」录入身高体重，我才知道你躺着也在烧多少</p>
+    </div>
+
+    <!-- 四项拆解 -->
+    <div class="bal-grid">
+      <button class="bal" data-bal="bmr">
+        <span class="bal-ico" data-ico="flame"></span>
+        <span class="bal-k" id="balBmr">—</span>
+        <span class="bal-n">基础代谢</span>
+      </button>
+      <button class="bal" data-bal="neat">
+        <span class="bal-ico" data-ico="leaf"></span>
+        <span class="bal-k" id="balNeat">—</span>
+        <span class="bal-n">日常额外</span>
+      </button>
+      <button class="bal" data-bal="move">
+        <span class="bal-ico" data-ico="wave"></span>
+        <span class="bal-k" id="balMove">—</span>
+        <span class="bal-n">运动消耗</span>
+      </button>
+      <button class="bal" data-bal="eat">
+        <span class="bal-ico" data-ico="bowl"></span>
+        <span class="bal-k" id="balEat">—</span>
+        <span class="bal-n">饮食摄入</span>
+      </button>
+    </div>
+
+    <!-- 今日吃了什么 -->
+    <section class="block">
+      <div class="block-head">
+        <h2 class="block-title">今天吃了什么</h2>
+        <span class="block-sub" id="eatCount">0 项</span>
+      </div>
+      <div class="meal-list" id="homeMeals">
+        <p class="empty" id="eatEmpty">还没有记录。点下面的「记一餐」，拍张照就行。</p>
+      </div>
+    </section>
+
+    <!-- 今日运动 -->
+    <section class="block">
+      <div class="block-head">
+        <h2 class="block-title">今天动了多少</h2>
+        <span class="block-sub" id="moveCount">0 项</span>
+      </div>
+      <div class="move-list" id="homeMoves">
+        <p class="empty" id="moveEmpty">今天还没出汗。散步也算，别偷懒</p>
+      </div>
+    </section>
+
+    <!-- 生成总结图 -->
+    <div class="cta-wrap">
+      <button class="cta" id="btnSummary">
+        <span class="cta-txt">生成今日总结图</span>
+        <span class="cta-sub">3:4 · 手绘蜡笔风</span>
+      </button>
+      <p class="cta-hint" id="ctaHint">会把今天的收支画成一张小卡，存在「留痕」里</p>
+    </div>
+
+    <!-- 留痕相册 -->
+    <section class="block" id="traceBlock" hidden>
+      <div class="block-head">
+        <h2 class="block-title">留痕</h2>
+        <span class="block-sub" id="traceCount">0 张</span>
+      </div>
+      <div class="trace-grid" id="traceGrid"></div>
+    </section>
+
+    <div class="tail-space"></div>
+  </section>
+
+  <!-- ============ 记饮食 ============ -->
+  <section class="page" id="page-eat">
+
+    <header class="home-head">
+      <p class="hh-date">先拍照 → 点食物 → 自动画注解</p>
+      <h1 class="hh-title">记一餐</h1>
+      <span class="hh-squiggle" aria-hidden="true"></span>
+    </header>
+
+    <div class="stage-wrap">
+      <input type="file" id="fileFood" accept="image/*" hidden>
+      <div class="stage" id="stage">
+        <div class="stage-ph" id="stagePh">
+          <span class="stage-ph-ico" data-ico="camera"></span>
+          <p class="stage-ph-t">放一张今天的饭</p>
+          <p class="stage-ph-s">点击选择照片</p>
+        </div>
+        <img id="stageImg" class="stage-img" alt="餐食照片" hidden>
+        <canvas id="stageCanvas" class="stage-canvas"></canvas>
+      </div>
+      <p class="stage-hint" id="stageHint">还没选图</p>
+    </div>
+
+    <div class="stage-tools" id="stageTools" hidden>
+      <button class="chip-btn" id="btnRePick">换一张</button>
+      <button class="chip-btn" id="btnClearMarks">清空标注</button>
+      <button class="chip-btn" id="btnAddPlain">只加菜不标点</button>
+    </div>
+
+    <div class="block">
+      <div class="block-head">
+        <h2 class="block-title">这盘里的东西</h2>
+        <span class="block-sub" id="pickCount">0 项</span>
+      </div>
+      <div class="pick-list" id="pickList">
+        <p class="empty" id="pickEmpty">选完照片后，直接点画面上的食物，我来圈它。</p>
+      </div>
+    </div>
+
+    <div class="cta-wrap">
+      <button class="cta" id="btnSaveMeal">
+        <span class="cta-txt">保存这一餐</span>
+        <span class="cta-sub" id="saveMealSub">合计 0 kcal</span>
+      </button>
+      <p class="cta-hint">保存后会自动画好手绘注解，并计入今天的摄入</p>
+    </div>
+
+    <div class="tail-space"></div>
+  </section>
+
+  <!-- ============ 记运动 ============ -->
+  <section class="page" id="page-move">
+
+    <header class="home-head">
+      <p class="hh-date">今天额外烧掉的部分</p>
+      <h1 class="hh-title">动一动</h1>
+      <span class="hh-squiggle" aria-hidden="true"></span>
+    </header>
+
+    <div class="seg" id="moveSeg">
+      <button class="seg-i is-on" data-mode="pick">选运动</button>
+      <button class="seg-i" data-mode="manual">直接填消耗</button>
+    </div>
+
+    <div id="movePickPane">
+      <div class="move-grid" id="moveGrid"></div>
+      <div class="form-row">
+        <label class="form-lab">时长<span class="form-unit">分钟</span></label>
+        <div class="dur-box">
+          <button class="dur-mini" data-d="-5">−</button>
+          <input type="number" id="mvDur" class="form-in" value="30" min="1" max="600" inputmode="numeric">
+          <button class="dur-mini" data-d="5">+</button>
+        </div>
+      </div>
+      <div class="mv-preview">
+        <span class="mv-prev-txt" id="mvPrevTxt">选一个看看</span>
+        <span class="mv-prev-num" id="mvPrevNum">—<small>kcal</small></span>
+      </div>
+      <div class="cta-wrap">
+        <button class="cta cta-slim" id="btnAddMove"><span class="cta-txt">加上去</span></button>
+      </div>
+    </div>
+
+    <div id="moveManualPane" hidden>
+      <div class="form-row">
+        <label class="form-lab">运动名称</label>
+        <input type="text" id="mvName" class="form-in" placeholder="例:爬楼梯 20 分钟">
+      </div>
+      <div class="form-row">
+        <label class="form-lab">消耗<span class="form-unit">kcal</span></label>
+        <input type="number" id="mvKcal" class="form-in" placeholder="手环上写的数字" inputmode="numeric">
+      </div>
+      <p class="cta-hint">手环、手表、Keep 上的数字直接抄过来就行。</p>
+      <div class="cta-wrap">
+        <button class="cta cta-slim" id="btnAddMove2"><span class="cta-txt">加上去</span></button>
+      </div>
+    </div>
+
+    <div class="block">
+      <div class="block-head">
+        <h2 class="block-title">今天的运动</h2>
+        <span class="block-sub" id="mvCount">0 项</span>
+      </div>
+      <div class="move-list" id="mvList">
+        <p class="empty">还没记录</p>
+      </div>
+    </div>
+
+    <div class="tail-space"></div>
+  </section>
+
+  <!-- ============ 我的 ============ -->
+  <section class="page" id="page-me">
+
+    <header class="home-head">
+      <p class="hh-date">你的身体参数</p>
+      <h1 class="hh-title">我的</h1>
+      <span class="hh-squiggle" aria-hidden="true"></span>
+    </header>
+
+    <!-- 装到主屏幕 -->
+    <div class="ins-card" id="insCard">
+      <img class="ins-ico" src="icons/icon-192.png" alt="" aria-hidden="true">
+      <div class="ins-txt">
+        <p class="ins-t">放到手机桌面</p>
+        <p class="ins-s" id="insSub">点开就用，不用每次找网址</p>
+      </div>
+      <button class="ins-btn" id="insBtn">添加</button>
+    </div>
+
+    <div class="seg" id="sexSeg">
+      <button class="seg-i" data-sex="f">女生</button>
+      <button class="seg-i" data-sex="m">男生</button>
+    </div>
+
+    <div class="form-card">
+      <div class="form-row">
+        <label class="form-lab">身高<span class="form-unit">cm</span></label>
+        <input type="number" id="pfH" class="form-in" placeholder="165" inputmode="numeric">
+      </div>
+      <div class="form-row">
+        <label class="form-lab">体重<span class="form-unit">kg</span></label>
+        <input type="number" id="pfW" class="form-in" placeholder="55" inputmode="decimal">
+      </div>
+      <div class="form-row">
+        <label class="form-lab">年纪<span class="form-unit">岁</span></label>
+        <input type="number" id="pfA" class="form-in" placeholder="28" inputmode="numeric">
+      </div>
+    </div>
+
+    <div class="block-head">
+      <h2 class="block-title">平时运动的频次</h2>
+    </div>
+    <div class="freq-list" id="freqList">
+      <button class="freq" data-f="1.2"><b>几乎不动</b><span>久坐办公，一周 0 次</span></button>
+      <button class="freq" data-f="1.375"><b>偶尔动动</b><span>一周 1-3 次轻运动</span></button>
+      <button class="freq" data-f="1.55"><b>规律运动</b><span>一周 3-5 次出汗</span></button>
+      <button class="freq" data-f="1.725"><b>高强度</b><span>一周 6-7 次 / 体力活</span></button>
+    </div>
+
+    <div class="result-card" id="bmrCard" hidden>
+      <p class="rc-t">躺着不动也要烧</p>
+      <p class="rc-n"><span id="rcBmr">—</span><small>kcal</small></p>
+      <p class="rc-d" id="rcNote">—</p>
+      <div class="rc-bars" id="rcBars"></div>
+    </div>
+
+    <div class="block">
+      <div class="block-head"><h2 class="block-title">目标</h2></div>
+      <div class="freq-list" id="goalList">
+        <button class="freq" data-g="-0.2"><b>慢慢减</b><span>每天留 ~20% 缺口</span></button>
+        <button class="freq" data-g="-0.1"><b>佛系维持</b><span>吃动平衡就行</span></button>
+        <button class="freq" data-g="0.1"><b>增肌塑形</b><span>每天多吃一点点</span></button>
+      </div>
+      <p class="cta-hint" id="goalHint">—</p>
+    </div>
+
+    <div class="block">
+      <div class="block-head"><h2 class="block-title">数据</h2></div>
+      <div class="tool-row">
+        <button class="chip-btn" id="btnExport">导出备份</button>
+        <button class="chip-btn" id="btnImport">导入备份</button>
+        <button class="chip-btn danger" id="btnReset">清空重来</button>
+        <input type="file" id="fileJson" accept=".json,application/json" hidden>
+      </div>
+      <p class="cta-hint">所有记录都存在这台手机本地，没上传任何地方。清缓存前记得导出。</p>
+    </div>
+
+    <div class="tail-space"></div>
+  </section>
+
+  <!-- ============ 底部导航 ============ -->
+  <nav class="tabbar" id="tabbar">
+    <button class="tab is-on" data-go="home">
+      <span class="tab-ico" data-ico="home"></span><span class="tab-t">今天</span>
+    </button>
+    <button class="tab" data-go="eat">
+      <span class="tab-ico" data-ico="eat"></span><span class="tab-t">记饮食</span>
+    </button>
+    <button class="tab" data-go="move">
+      <span class="tab-ico" data-ico="move"></span><span class="tab-t">记运动</span>
+    </button>
+    <button class="tab" data-go="me">
+      <span class="tab-ico" data-ico="me"></span><span class="tab-t">我的</span>
+    </button>
+  </nav>
+
+  <!-- ============ 食物选择弹层 ============ -->
+  <div class="mask" id="mask" hidden></div>
+
+  <div class="sheet" id="sheet" hidden>
+    <div class="sheet-bar"></div>
+    <p class="sheet-t" id="sheetT">这是什么?</p>
+
+    <div class="sheet-search">
+      <input type="text" id="foodSearch" class="form-in" placeholder="搜一下，比如 牛排 / 奶茶">
+    </div>
+    <div class="sheet-res" id="foodRes"></div>
+
+    <div class="sheet-port" id="sheetPort" hidden>
+      <div class="form-row">
+        <label class="form-lab">份量</label>
+        <input type="number" id="portQty" class="form-in" value="1" min="0.1" step="0.1" inputmode="decimal">
+      </div>
+      <div class="form-row">
+        <label class="form-lab">热量<span class="form-unit">kcal</span></label>
+        <input type="number" id="portKcal" class="form-in" value="0" min="0" inputmode="numeric">
+      </div>
+      <input type="text" id="portNote" class="form-in" placeholder="备注(可选):白灼 / 少油 / 加了芝士">
+    </div>
+
+    <div class="sheet-btns">
+      <button class="chip-btn" id="btnCancelFood">取消</button>
+      <button class="chip-btn solid" id="btnOkFood">就它了</button>
+    </div>
+  </div>
+
+  <!-- ============ 总结图预览 ============ -->
+  <div class="mask mask-top" id="shotMask" hidden>
+    <div class="shot-wrap">
+      <p class="shot-t" id="shotT">今日总结</p>
+      <img id="shotImg" class="shot-img" alt="今日总结图">
+      <div class="shot-btns">
+        <button class="chip-btn" id="btnShotClose">收起</button>
+        <button class="chip-btn solid" id="btnShotSave">存到手机</button>
+      </div>
+      <p class="shot-hint">手机上长按图片也能直接保存</p>
+    </div>
+  </div>
+
+  <!-- ============ 装到桌面：引导层 ============ -->
+  <div class="mask" id="insMask" hidden></div>
+
+  <div class="sheet ins-sheet" id="insSheet" hidden>
+    <div class="sheet-bar"></div>
+    <p class="sheet-t" id="insTitle">放到手机桌面</p>
+    <p class="ins-lead" id="insLead">以后点图标就能进，跟 App 一样。</p>
+    <div class="ins-steps" id="insSteps"></div>
+    <div class="sheet-btns">
+      <button class="chip-btn" id="insClose">收起</button>
+      <button class="chip-btn solid" id="insGo" hidden>一键添加</button>
+    </div>
+  </div>
+
+  <!-- ============ 首次访问：底部提示条 ============ -->
+  <div class="ins-banner" id="insBanner" hidden>
+    <img class="ins-banner-ico" src="icons/icon-192.png" alt="" aria-hidden="true">
+    <span class="ins-banner-t">放到桌面，点开就用</span>
+    <button class="ins-banner-go" id="insBannerGo">怎么放</button>
+    <button class="ins-banner-x" id="insBannerX" aria-label="关闭">×</button>
+  </div>
+
+  <!-- ============ 轻提示 ============ -->
+  <div class="toast" id="toast" hidden></div>
+
+</div>
+
+<script src="js/rough.js"></script>
+<script src="js/data.js"></script>
+<script src="js/engine.js"></script>
+<script src="js/icons.js"></script>
+<script src="js/annotate.js"></script>
+<script src="js/summary.js"></script>
+<script src="js/pwa.js"></script>
+<script src="js/ui.js"></script>
+</body>
+</html>
